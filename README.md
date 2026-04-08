@@ -2,56 +2,170 @@
 
 Privacy-preserving federated learning with Low-Rank Adapters and Knowledge Distillation.
 
-## Quick Start
+## Setup
+
+### 1. Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Configure HuggingFace token
+```bash
+# Copy example env file
+cp .env.example .env
+
+# Edit .env and add your HuggingFace token
+# HF_TOKEN=hf_xxxxxxxxxxxxx
+```
+
+Or login via CLI:
+```bash
+huggingface-cli login
+```
+
+### 3. Verify setup
+```bash
+python scripts/smoke_test.py
+```
+
+---
+
+## Training Adapters
+
+### Train individual client adapters
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Train C1 adapter (SQuAD)
+python scripts/train.py --config configs/fedlora_squad_nq.json --stage c1_adapter
 
-# Run smoke test
-python scripts/smoke_test.py
+# Train C2 adapter (Natural Questions)
+python scripts/train.py --config configs/fedlora_squad_nq.json --stage c2_adapter
 
-# Run full experiment
-python main.py --config configs/fedlora_squad_nq.json
-
-# Run specific phase only
-python main.py --config configs/fedlora_squad_nq.json --phase baseline
-python main.py --config configs/fedlora_squad_nq.json --phase train
+# Train C3 adapter (SciQ)
+python scripts/train.py --config configs/c3_experiment.json --stage c3_adapter
 ```
+
+### Override base model
+```bash
+# Use a different model
+python scripts/train.py --config configs/fedlora_squad_nq.json --bm meta-llama/Llama-3.2-1B --stage c1_adapter
+```
+
+### Aggregate adapters into Universal Model
+```bash
+# Create UM from C1 + C2
+python scripts/train.py --config configs/fedlora_squad_nq.json --stage aggregate --adapters c1,c2
+
+# Create UM v2 from C1 + C2 + C3
+python scripts/train.py --config configs/fedlora_squad_nq.json --stage aggregate --adapters c1,c2,c3 --output-name universal_v2
+```
+
+### Evaluate models
+```bash
+# Evaluate baseline (no adapter)
+python scripts/train.py --config configs/fedlora_squad_nq.json --stage baseline
+
+# Evaluate Universal Model on specific dataset
+python scripts/train.py --config configs/fedlora_squad_nq.json --stage evaluate --model universal --dataset sciq
+
+# Evaluate with custom adapter path
+python scripts/train.py --config configs/fedlora_squad_nq.json --stage evaluate --adapter-path outputs/my_adapter --model custom
+```
+
+### Run full pipeline
+```bash
+python scripts/train.py --config configs/fedlora_squad_nq.json --stage all
+```
+
+---
+
+## C3 Experiments (Comparison Table)
+
+To fill the comparison table:
+
+| Model | Description |
+|-------|-------------|
+| BM | Base Model (no adapter) |
+| UM | Universal Model (C1+C2) |
+| BM + (C3) | Fine-tuned on C3 only |
+| BM + (C3 w UM KD) | Dual-teacher KD from UM |
+| BM + AVG(C1,C2,C3) | Universal Model v2 |
+
+### Step-by-step
+
+```bash
+# 1. Train C1 and C2 adapters
+python scripts/train.py --config configs/fedlora_squad_nq.json --stage c1_adapter
+python scripts/train.py --config configs/fedlora_squad_nq.json --stage c2_adapter
+
+# 2. Create Universal Model (C1+C2)
+python scripts/train.py --config configs/fedlora_squad_nq.json --stage aggregate --adapters c1,c2
+
+# 3. Run C3 experiments
+python scripts/run_c3_experiments.py \
+    --config configs/c3_experiment.json \
+    --output-dir outputs/c3_experiments \
+    --um-adapter outputs/fedlora_squad_nq/universal_adapter \
+    --c1-adapter outputs/fedlora_squad_nq/c1_adapter \
+    --c2-adapter outputs/fedlora_squad_nq/c2_adapter
+```
+
+Results saved to: `outputs/c3_experiments/comparison_table.json`
+
+---
 
 ## Project Structure
 
 ```
-├── main.py                      # Entry point
+├── main.py                      # Legacy entry point
+├── scripts/
+│   ├── train.py                 # Modular training script
+│   ├── run_c3_experiments.py    # C3 comparison experiments
+│   └── smoke_test.py            # Verify setup
 ├── configs/
-│   └── fedlora_squad_nq.json    # Main experiment config
+│   ├── fedlora_squad_nq.json    # C1 + C2 config
+│   └── c3_experiment.json       # C3 experiment config
 ├── src/
 │   ├── model.py                 # Model loading, LoRA setup
-│   ├── data.py                  # Dataset loading, preprocessing
+│   ├── data.py                  # Dataset loading (SQuAD, NQ, SciQ)
 │   ├── trainer.py               # Training loop
-│   ├── evaluator.py             # QA metrics (F1, EM)
+│   ├── kd_trainer.py            # Knowledge distillation
+│   ├── evaluator.py             # Metrics (F1, EM, BLEU, etc.)
 │   ├── aggregator.py            # FedAvg aggregation
 │   ├── attacks.py               # Privacy attacks
 │   ├── client.py                # FL client
 │   └── server.py                # FL server
 ├── tests/                       # Unit tests
-├── scripts/                     # Utility scripts
 └── outputs/                     # Experiment results
 ```
 
-## Experiment Phases
+---
 
-1. **Baseline**: Evaluate base Llama 3.2 3B on SQuAD and Natural Questions
-2. **Client Training**: Train LoRA adapters for each client (C1: SQuAD, C2: NQ)
-3. **Aggregation**: Create Universal Adapter via FedAvg
-4. **Evaluation**: Evaluate Universal Model on both datasets
-5. **Privacy Analysis**: Run membership inference and domain identification attacks
+## Configuration
+
+Adapters are defined in the config file:
+
+```json
+{
+    "clients": {
+        "c1": {"dataset": "squad_v2", "num_samples": 10000},
+        "c2": {"dataset": "natural_questions", "num_samples": 10000},
+        "c3": {"dataset": "sciq", "num_samples": 5000}
+    }
+}
+```
+
+Available datasets: `squad_v2`, `natural_questions`, `sciq`
+
+---
 
 ## Requirements
 
 - NVIDIA GPU with 24GB+ VRAM (tested on A10)
 - Python 3.10+
 - HuggingFace account with Llama access
+
+---
 
 ## Running Tests
 
