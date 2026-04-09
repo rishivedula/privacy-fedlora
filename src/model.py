@@ -8,8 +8,27 @@ from peft import LoraConfig, get_peft_model, PeftModel
 from huggingface_hub import login as hf_login
 
 
+def setup_hf_cache() -> None:
+    """Setup HuggingFace cache directory.
+
+    Uses /tmp/huggingface by default to avoid filling up small EBS volumes.
+    Override with HF_HOME environment variable.
+    """
+    if "HF_HOME" not in os.environ:
+        cache_dir = "/tmp/huggingface"
+        os.makedirs(cache_dir, exist_ok=True)
+        os.environ["HF_HOME"] = cache_dir
+        os.environ["TRANSFORMERS_CACHE"] = f"{cache_dir}/hub"
+        os.environ["HF_DATASETS_CACHE"] = f"{cache_dir}/datasets"
+
+    print(f"HuggingFace cache: {os.environ.get('HF_HOME')}")
+
+
 def setup_hf_auth() -> None:
     """Setup HuggingFace authentication from environment."""
+    # Setup cache first
+    setup_hf_cache()
+
     token = os.environ.get("HF_TOKEN")
     if token:
         hf_login(token=token, add_to_git_credential=False)
