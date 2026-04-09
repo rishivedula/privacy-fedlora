@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Experiment outputs (keep structure, ignore contents)
+outputs/*
+!outputs/.gitkeep
+
+# Data
+data/
+*.pt
+*.pth
+*.ckpt
+
+# Logs
+*.log
+wandb/
+
+# OS
+.DS_Store
+Thumbs.db

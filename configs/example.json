@@ -1,0 +1,35 @@
+{
+    "experiment_name": "example_experiment",
+    "seed": 42,
+
+    "data": {
+        "dataset": "cifar10",
+        "num_clients": 10,
+        "iid": false
+    },
+
+    "model": {
+        "architecture": "resnet18",
+        "num_classes": 10
+    },
+
+    "training": {
+        "num_rounds": 100,
+        "local_epochs": 5,
+        "batch_size": 32,
+        "learning_rate": 0.01
+    },
+
+    "privacy": {
+        "enabled": false,
+        "epsilon": 8.0,
+        "delta": 1e-5,
+        "max_grad_norm": 1.0
+    },
+
+    "logging": {
+        "output_dir": "outputs",
+        "checkpoint_every": 10,
+        "log_every": 1
+    }
+}
