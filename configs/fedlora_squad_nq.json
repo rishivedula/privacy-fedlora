@@ -23,7 +23,7 @@
             "num_samples": 10000
         },
         "c2": {
-            "dataset": "natural_questions",
+            "dataset": "triviaqa",
             "num_samples": 10000
         }
     },

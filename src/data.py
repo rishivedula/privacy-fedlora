@@ -55,6 +55,53 @@ def load_natural_questions(
     return dataset
 
 
+def load_triviaqa(
+    split: str = "train",
+    num_samples: Optional[int] = None
+) -> Dataset:
+    """Load TriviaQA dataset (~2.5GB).
+
+    Args:
+        split: Dataset split (train, validation)
+        num_samples: Optional limit on number of samples
+
+    Returns:
+        HuggingFace Dataset
+    """
+    # Use rc.nocontext for smaller download (questions + answers only)
+    dataset = load_dataset("trivia_qa", "rc.nocontext", split=split)
+
+    if num_samples is not None:
+        dataset = dataset.select(range(min(num_samples, len(dataset))))
+
+    return dataset
+
+
+def format_triviaqa_example(example: Dict) -> Dict:
+    """Format a TriviaQA example for training.
+
+    Args:
+        example: Raw TriviaQA example
+
+    Returns:
+        Formatted example with prompt and answer
+    """
+    question = example["question"]
+    # TriviaQA rc.nocontext doesn't have context, use question directly
+    context = "Answer the following trivia question."
+
+    # Get answer - TriviaQA has multiple aliases
+    answer = example["answer"]["value"]
+
+    prompt = format_qa_prompt(question, context)
+
+    return {
+        "prompt": prompt,
+        "answer": answer,
+        "full_text": f"{prompt} {answer}"
+    }
+
+
 def load_sciq(
     split: str = "train",
     num_samples: Optional[int] = None
@@ -199,6 +246,7 @@ def preprocess_dataset(
     format_fns = {
         "squad": format_squad_example,
         "nq": format_nq_example,
+        "triviaqa": format_triviaqa_example,
         "sciq": format_sciq_example
     }
     format_fn = format_fns.get(dataset_type)
@@ -262,10 +310,10 @@ def get_client_data(
         train_data = load_squad("train", num_samples)
         eval_data = load_squad("validation", min(1000, num_samples // 10))
         dataset_type = "squad"
-    elif dataset_name == "natural_questions":
-        train_data = load_natural_questions("train", num_samples)
-        eval_data = load_natural_questions("validation", min(1000, num_samples // 10))
-        dataset_type = "nq"
+    elif dataset_name == "triviaqa":
+        train_data = load_triviaqa("train", num_samples)
+        eval_data = load_triviaqa("validation", min(1000, num_samples // 10))
+        dataset_type = "triviaqa"
     elif dataset_name == "sciq":
         train_data = load_sciq("train", num_samples)
         eval_data = load_sciq("validation", min(1000, num_samples // 10))
