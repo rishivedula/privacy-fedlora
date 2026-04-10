@@ -1,5 +1,5 @@
 {
-    "experiment_name": "c3_sciq_experiments",
+    "experiment_name": "c3_multidomain_experiments",
     "seed": 42,
 
     "model": {
@@ -17,20 +17,24 @@
         "task_type": "CAUSAL_LM"
     },
 
-    "clients": {
-        "c1": {
-            "dataset": "squad_v2",
-            "num_samples": 10000
+    "universal_teacher": {
+        "clients": {
+            "c1": {"dataset": "squad_v2",  "num_samples": 10000},
+            "c2": {"dataset": "triviaqa",  "num_samples": 10000}
         },
-        "c2": {
-            "dataset": "natural_questions",
-            "num_samples": 10000
-        },
-        "c3": {
-            "dataset": "sciq",
-            "num_samples": 5000
-        }
+        "aggregation": "ensemble"
     },
+
+    "c3_domains": [
+        {"name": "sciq",           "dataset": "sciq",           "train_samples": 50, "eval_samples": 150},
+        {"name": "pubmedqa",       "dataset": "pubmedqa",       "train_samples": 50, "eval_samples": 150},
+        {"name": "medqa",          "dataset": "medqa",          "train_samples": 50, "eval_samples": 150},
+        {"name": "finqa",          "dataset": "finqa",          "train_samples": 50, "eval_samples": 150},
+        {"name": "code_qa",        "dataset": "code_qa",        "train_samples": 50, "eval_samples": 150},
+        {"name": "arc",            "dataset": "arc",            "train_samples": 50, "eval_samples": 150},
+        {"name": "openbookqa",     "dataset": "openbookqa",     "train_samples": 50, "eval_samples": 150},
+        {"name": "commonsense_qa", "dataset": "commonsense_qa", "train_samples": 50, "eval_samples": 150}
+    ],
 
     "training": {
         "local_epochs": 3,
@@ -49,7 +53,6 @@
 
     "evaluation": {
         "metrics": ["f1", "exact_match", "contains", "perplexity", "bertscore", "bleu", "rouge"],
-        "eval_samples": 500,
         "eval_batch_size": 8
     },
 

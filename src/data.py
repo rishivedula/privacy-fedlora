@@ -123,6 +123,132 @@ def load_sciq(
     return dataset
 
 
+def load_pubmedqa(split: str = "train", num_samples: Optional[int] = None) -> Dataset:
+    """Load PubMedQA biomedical QA dataset."""
+    ds_split = "train" if split == "train" else "test"
+    dataset = load_dataset("pubmed_qa", "pqa_labeled", split=ds_split, trust_remote_code=True)
+    if num_samples is not None:
+        dataset = dataset.select(range(min(num_samples, len(dataset))))
+    return dataset
+
+
+def format_pubmedqa_example(example: Dict) -> Dict:
+    question = example["question"]
+    contexts = example["context"]["contexts"]
+    context = " ".join(contexts)[:1000] if isinstance(contexts, list) else str(contexts)[:1000]
+    answer = example.get("long_answer", example.get("final_decision", "yes"))
+    prompt = format_qa_prompt(question, context)
+    return {"prompt": prompt, "answer": str(answer), "full_text": f"{prompt} {answer}"}
+
+
+def load_medqa(split: str = "train", num_samples: Optional[int] = None) -> Dataset:
+    """Load MedQA USMLE medical licensing exam QA."""
+    dataset = load_dataset("GBaker/MedQA-USMLE-4-options", split=split, trust_remote_code=True)
+    if num_samples is not None:
+        dataset = dataset.select(range(min(num_samples, len(dataset))))
+    return dataset
+
+
+def format_medqa_example(example: Dict) -> Dict:
+    question = example["question"]
+    options = example.get("options", {})
+    context = " ".join([f"{k}: {v}" for k, v in options.items()]) if options else ""
+    answer = str(example.get("answer", example.get("answer_idx", "")))
+    prompt = format_qa_prompt(question, context)
+    return {"prompt": prompt, "answer": answer, "full_text": f"{prompt} {answer}"}
+
+
+def load_finqa(split: str = "train", num_samples: Optional[int] = None) -> Dataset:
+    """Load FinQA financial QA dataset."""
+    dataset = load_dataset("ibm/finqa", split=split, trust_remote_code=True)
+    if num_samples is not None:
+        dataset = dataset.select(range(min(num_samples, len(dataset))))
+    return dataset
+
+
+def format_finqa_example(example: Dict) -> Dict:
+    question = example.get("question", "")
+    pre = " ".join(example.get("pre_text", []))
+    post = " ".join(example.get("post_text", []))
+    context = f"{pre} {post}".strip()[:1000]
+    answer = str(example.get("answer", ""))
+    prompt = format_qa_prompt(question, context)
+    return {"prompt": prompt, "answer": answer, "full_text": f"{prompt} {answer}"}
+
+
+def load_code_qa(split: str = "train", num_samples: Optional[int] = None) -> Dataset:
+    """Load CodeXGLUE code-to-text (Python) as a code-understanding QA proxy."""
+    dataset = load_dataset("code_x_glue_ct_code_to_text", "python", split=split, trust_remote_code=True)
+    if num_samples is not None:
+        dataset = dataset.select(range(min(num_samples, len(dataset))))
+    return dataset
+
+
+def format_code_qa_example(example: Dict) -> Dict:
+    code = example.get("code", "")[:500]
+    docstring = example.get("docstring", "")[:200]
+    question = "What does this code do?"
+    prompt = format_qa_prompt(question, f"```python\n{code}\n```")
+    return {"prompt": prompt, "answer": docstring, "full_text": f"{prompt} {docstring}"}
+
+
+def load_arc(split: str = "train", num_samples: Optional[int] = None) -> Dataset:
+    """Load AI2 ARC-Challenge science reasoning dataset."""
+    dataset = load_dataset("allenai/ai2_arc", "ARC-Challenge", split=split)
+    if num_samples is not None:
+        dataset = dataset.select(range(min(num_samples, len(dataset))))
+    return dataset
+
+
+def format_arc_example(example: Dict) -> Dict:
+    question = example["question"]
+    labels = example["choices"]["label"]
+    texts = example["choices"]["text"]
+    context = " ".join([f"{l}: {t}" for l, t in zip(labels, texts)])
+    answer_key = example["answerKey"]
+    answer = next((t for l, t in zip(labels, texts) if l == answer_key), "")
+    prompt = format_qa_prompt(question, context)
+    return {"prompt": prompt, "answer": answer, "full_text": f"{prompt} {answer}"}
+
+
+def load_openbookqa(split: str = "train", num_samples: Optional[int] = None) -> Dataset:
+    """Load OpenBookQA science questions dataset."""
+    dataset = load_dataset("allenai/openbookqa", split=split)
+    if num_samples is not None:
+        dataset = dataset.select(range(min(num_samples, len(dataset))))
+    return dataset
+
+
+def format_openbookqa_example(example: Dict) -> Dict:
+    question = example["question_stem"]
+    labels = example["choices"]["label"]
+    texts = example["choices"]["text"]
+    context = " ".join([f"{l}: {t}" for l, t in zip(labels, texts)])
+    answer_key = example["answerKey"]
+    answer = next((t for l, t in zip(labels, texts) if l == answer_key), "")
+    prompt = format_qa_prompt(question, context)
+    return {"prompt": prompt, "answer": answer, "full_text": f"{prompt} {answer}"}
+
+
+def load_commonsense_qa(split: str = "train", num_samples: Optional[int] = None) -> Dataset:
+    """Load CommonsenseQA dataset."""
+    dataset = load_dataset("tau/commonsense_qa", split=split)
+    if num_samples is not None:
+        dataset = dataset.select(range(min(num_samples, len(dataset))))
+    return dataset
+
+
+def format_commonsense_qa_example(example: Dict) -> Dict:
+    question = example["question"]
+    labels = example["choices"]["label"]
+    texts = example["choices"]["text"]
+    context = " ".join([f"{l}: {t}" for l, t in zip(labels, texts)])
+    answer_key = example["answerKey"]
+    answer = next((t for l, t in zip(labels, texts) if l == answer_key), "")
+    prompt = format_qa_prompt(question, context)
+    return {"prompt": prompt, "answer": answer, "full_text": f"{prompt} {answer}"}
+
+
 def format_sciq_example(example: Dict) -> Dict:
     """Format a SciQ example for training.
 
@@ -247,7 +373,14 @@ def preprocess_dataset(
         "squad": format_squad_example,
         "nq": format_nq_example,
         "triviaqa": format_triviaqa_example,
-        "sciq": format_sciq_example
+        "sciq": format_sciq_example,
+        "pubmedqa": format_pubmedqa_example,
+        "medqa": format_medqa_example,
+        "finqa": format_finqa_example,
+        "code_qa": format_code_qa_example,
+        "arc": format_arc_example,
+        "openbookqa": format_openbookqa_example,
+        "commonsense_qa": format_commonsense_qa_example,
     }
     format_fn = format_fns.get(dataset_type)
     if format_fn is None:
@@ -306,20 +439,25 @@ def get_client_data(
     dataset_name = client_config["dataset"]
     num_samples = client_config.get("num_samples", 10000)
 
-    if dataset_name == "squad_v2":
-        train_data = load_squad("train", num_samples)
-        eval_data = load_squad("validation", min(1000, num_samples // 10))
-        dataset_type = "squad"
-    elif dataset_name == "triviaqa":
-        train_data = load_triviaqa("train", num_samples)
-        eval_data = load_triviaqa("validation", min(1000, num_samples // 10))
-        dataset_type = "triviaqa"
-    elif dataset_name == "sciq":
-        train_data = load_sciq("train", num_samples)
-        eval_data = load_sciq("validation", min(1000, num_samples // 10))
-        dataset_type = "sciq"
-    else:
+    # Registry: dataset_name -> (loader_fn, eval_split, dataset_type)
+    registry = {
+        "squad_v2":       (load_squad,          "validation", "squad"),
+        "triviaqa":       (load_triviaqa,        "validation", "triviaqa"),
+        "sciq":           (load_sciq,            "validation", "sciq"),
+        "pubmedqa":       (load_pubmedqa,        "test",       "pubmedqa"),
+        "medqa":          (load_medqa,           "test",       "medqa"),
+        "finqa":          (load_finqa,           "test",       "finqa"),
+        "code_qa":        (load_code_qa,         "test",       "code_qa"),
+        "arc":            (load_arc,             "validation", "arc"),
+        "openbookqa":     (load_openbookqa,      "validation", "openbookqa"),
+        "commonsense_qa": (load_commonsense_qa,  "validation", "commonsense_qa"),
+    }
+    if dataset_name not in registry:
         raise ValueError(f"Unknown dataset: {dataset_name}")
+
+    load_fn, eval_split, dataset_type = registry[dataset_name]
+    train_data = load_fn("train", num_samples)
+    eval_data = load_fn(eval_split, min(1000, num_samples // 10))
 
     max_length = config["training"].get("max_seq_length", 512)
 
