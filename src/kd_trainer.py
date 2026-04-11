@@ -71,26 +71,18 @@ def compute_confidence_weighted_kd_loss(
     Returns:
         Tuple of (combined loss, mean confidence for logging)
     """
-    # Compute per-sample teacher confidence
+    # Compute batch-level teacher confidence
     confidence = compute_teacher_confidence(teacher_logits, labels, temperature)
+    mean_confidence = confidence.mean()
 
     # Soft targets from teacher
     soft_targets = F.softmax(teacher_logits / temperature, dim=-1)
     soft_student = F.log_softmax(student_logits / temperature, dim=-1)
 
-    # KL divergence loss per sample (not reduced)
-    kd_loss_per_token = F.kl_div(
-        soft_student, soft_targets, reduction="none"
-    ).sum(dim=-1)
-
-    # Mask and average over sequence
-    mask = (labels != -100).float()
-    kd_sum = (kd_loss_per_token * mask).sum(dim=-1)
-    kd_loss_per_sample = kd_sum / (mask.sum(dim=-1) + 1e-10)
-    kd_loss_per_sample = kd_loss_per_sample * (temperature ** 2)
-
-    # Weight by confidence and average over batch
-    weighted_kd_loss = (confidence * kd_loss_per_sample).mean()
+    # Standard KD loss (properly scaled with batchmean)
+    kd_loss = F.kl_div(
+        soft_student, soft_targets, reduction="batchmean"
+    ) * (temperature ** 2)
 
     # Cross entropy loss (hard targets)
     ce_loss = F.cross_entropy(
@@ -99,10 +91,12 @@ def compute_confidence_weighted_kd_loss(
         ignore_index=-100
     )
 
+    # Weight KD by confidence: high confidence = trust teacher more
     # Combined loss: CE + confidence-weighted KD
-    combined_loss = (1 - alpha) * ce_loss + alpha * weighted_kd_loss
+    effective_alpha = alpha * mean_confidence
+    combined_loss = (1 - effective_alpha) * ce_loss + effective_alpha * kd_loss
 
-    return combined_loss, confidence.mean()
+    return combined_loss, mean_confidence
 
 
 def compute_kd_loss(
