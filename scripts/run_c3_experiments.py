@@ -281,7 +281,7 @@ def experiment_um_v2(config: dict, output_dir: Path, c1_path: str, c2_path: str,
 def print_comparison_table(results: dict):
     """Print comparison table."""
     print("\n" + "=" * 100)
-    print("COMPARISON TABLE (C3 = SciQ)")
+    print("COMPARISON TABLE (C3 = BillSum)")
     print("=" * 100)
 
     headers = ["Model", "F1", "EM", "Contains", "PPL", "BERTScore", "BLEU", "ROUGE"]
