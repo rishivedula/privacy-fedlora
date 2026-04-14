@@ -1,5 +1,5 @@
 {
-    "experiment_name": "fedlora_squad_triviaqa",
+    "experiment_name": "fedlora_squad_triviaqa_1ep",
     "seed": 42,
 
     "model": {
@@ -29,7 +29,7 @@
     },
 
     "training": {
-        "local_epochs": 3,
+        "local_epochs": 1,
         "batch_size": 4,
         "gradient_accumulation_steps": 8,
         "learning_rate": 2e-4,

@@ -1,95 +1,9 @@
 """Federated aggregation utilities for LoRA adapters."""
 
 import torch
-from typing import Dict, List, Optional
+from typing import Dict, List
 from pathlib import Path
 from peft import PeftModel
-
-
-class EnsembleTeacher:
-    """Universal teacher via ensemble inference over client adapters.
-
-    Replaces FedAvg weight averaging (which collapses on small models) with
-    logit averaging: each adapter runs on its own base model instance, then
-    logits are averaged at inference time.
-    """
-
-    def __init__(
-        self,
-        base_model_name: str,
-        adapter_paths: List[str],
-        dtype: str = "bfloat16"
-    ):
-        from src.model import load_base_model, load_adapter
-
-        self.models = []
-        for i, path in enumerate(adapter_paths):
-            print(f"EnsembleTeacher: loading member {i + 1}/{len(adapter_paths)} from {path}")
-            model, _ = load_base_model(base_model_name, dtype=dtype, gradient_checkpointing=False)
-            model = load_adapter(model, path)
-            model.eval()
-            self.models.append(model)
-
-        print(f"EnsembleTeacher: {len(self.models)} members ready")
-
-    def eval(self):
-        for model in self.models:
-            model.eval()
-        return self
-
-    def __call__(self, **batch):
-        """Forward pass: average logits across all ensemble members."""
-        all_logits = []
-        primary_device = self.models[0].device
-        for model in self.models:
-            model_batch = {k: v.to(model.device) for k, v in batch.items()}
-            with torch.no_grad():
-                outputs = model(**model_batch)
-                all_logits.append(outputs.logits.to(primary_device))
-
-        avg_logits = torch.stack(all_logits).mean(dim=0)
-
-        class _Output:
-            def __init__(self, logits):
-                self.logits = logits
-
-        return _Output(avg_logits)
-
-    def generate(
-        self,
-        input_ids: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
-        max_new_tokens: int = 50,
-        **kwargs
-    ) -> torch.Tensor:
-        """Greedy ensemble generation: average logits at each decoding step."""
-        device = self.models[0].device
-        generated = input_ids.to(device)
-        attn = attention_mask.to(device) if attention_mask is not None else None
-        eos_id = getattr(self.models[0].config, "eos_token_id", None)
-
-        for _ in range(max_new_tokens):
-            all_next = []
-            for model in self.models:
-                m_gen = generated.to(model.device)
-                m_attn = attn.to(model.device) if attn is not None else None
-                with torch.no_grad():
-                    out = model(input_ids=m_gen, attention_mask=m_attn)
-                    all_next.append(out.logits[:, -1, :].to(device))
-
-            next_token = torch.stack(all_next).mean(dim=0).argmax(dim=-1, keepdim=True)
-            generated = torch.cat([generated, next_token], dim=-1)
-
-            if attn is not None:
-                attn = torch.cat([
-                    attn,
-                    torch.ones((attn.shape[0], 1), device=device, dtype=attn.dtype)
-                ], dim=-1)
-
-            if eos_id is not None and (next_token == eos_id).all():
-                break
-
-        return generated
 
 
 def fedavg_lora(

@@ -147,10 +147,10 @@ def evaluate_model(
     """Evaluate a model configuration."""
     from src.model import load_base_model, load_adapter
     from src.data import (
-        load_squad, load_natural_questions, load_sciq,
-        format_squad_example, format_nq_example, format_sciq_example
+        load_squad, load_sciq,
+        format_squad_example, format_sciq_example
     )
-    from src.evaluator import evaluate_qa
+    from src.evaluator import evaluate
 
     print(f"\n{'='*60}")
     print(f"Evaluating: {model_type}")
@@ -176,7 +176,6 @@ def evaluate_model(
 
     dataset_loaders = {
         "squad": (load_squad, format_squad_example, "validation"),
-        "nq": (load_natural_questions, format_nq_example, "validation"),
         "sciq": (load_sciq, format_sciq_example, "validation"),
     }
 
@@ -195,7 +194,7 @@ def evaluate_model(
         raw_data = loader_fn(split, eval_samples)
         examples = [format_fn(ex) for ex in raw_data]
 
-        ds_results = evaluate_qa(
+        ds_results = evaluate(
             model, tokenizer, examples,
             max_samples=eval_samples,
             compute_all_metrics=True
